@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BRANCH="master"
+BRANCH="main"
 
 read -p "Komentar ke commitu:" comment
 
