@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BRANCH="master"
+BRANCH="main"
 
 cd ..
 CURRENTDATE=`date +"%Y-%m-%d %H-%M-%S"`

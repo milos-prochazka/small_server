@@ -1,4 +1,4 @@
-BRANCH="master"
+BRANCH="main"
 
 read -p "HARD pro smazani dat, SOFT smaze jen commit:" commit
 

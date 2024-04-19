@@ -1,4 +1,6 @@
 import 'dart:io' as io;
+import 'package:small_server/api/api.dart';
+
 import 'file_io.dart';
 import 'config.dart';
 
@@ -7,7 +9,7 @@ enum CmpMode
   normal,
   start,
   end,
-  api,
+  contains,
 }
 
 class PathMap 
@@ -15,13 +17,14 @@ class PathMap
   CmpMode mode = CmpMode.normal;
   String path = "";
   String file;
+  bool api = false;
   PathMap(String path, this.file) 
   {
     if (path.startsWith('*')) 
     {
       if (path.endsWith('*')) 
       {
-        mode = CmpMode.api;
+        mode = CmpMode.contains;
         this.path = path.substring(1, path.length - 1);
       } 
       else 
@@ -32,16 +35,19 @@ class PathMap
     } 
     else if (path.endsWith('*')) 
     {
-      mode = CmpMode.end;
+      mode = CmpMode.start;
       this.path = path.substring(0, path.length - 1);
-    } 
-    else if (path == '@api') 
-    {
-      mode = CmpMode.api;
     } 
     else 
     {
       this.path = path;
+    }
+
+    switch (file) 
+    {
+      case "@api":
+      api = true;
+      break;
     }
   }
 }
@@ -75,6 +81,7 @@ Future serverMain(dynamic config) async
     print("start bind {${config['host']}:${config['port']}}");
     var httpServer = await io.HttpServer.bind(config['host'], config['port'], shared: true);
     print("binded");
+
     await for (var request in httpServer) 
     {
       try 
@@ -85,39 +92,27 @@ Future serverMain(dynamic config) async
         search:
         for (var pathMap in pathMaps) 
         {
-          switch (pathMap.mode) 
+          bool isMatch = switch (pathMap.mode) 
           {
-            case CmpMode.normal:
-            case CmpMode.start:
-            case CmpMode.end:
-            {
-              bool isMatch = switch (pathMap.mode) 
-              {
-                CmpMode.normal => request.uri.path == pathMap.path,
-                CmpMode.start => request.uri.path.startsWith(pathMap.path),
-                CmpMode.end => request.uri.path.endsWith(pathMap.path),
-                _ => false,
-              };
+            CmpMode.normal => request.uri.path == pathMap.path,
+            CmpMode.start => request.uri.path.startsWith(pathMap.path),
+            CmpMode.end => request.uri.path.endsWith(pathMap.path),
+            CmpMode.contains => request.uri.path.contains(pathMap.path),
+            _ => false,
+          };
 
-              if (isMatch) 
-              {
-                await getFile(request, joinPath(fileRoot, pathMap.file));
-                isFound = true;
-                break search;
-              }
-            }
-            break;
-
-            case CmpMode.api:
+          if (isMatch) 
+          {
+            if (pathMap.api) 
             {
-              request.response.headers.contentType = io.ContentType.html;
-              request.response.write("Api");
-              request.response.close();
-              isFound = true;
-              break search;
+              await apiRequest(request, request.uri.path.substring(pathMap.path.length), config);
+            } 
+            else 
+            {
+              await getFile(request, joinPath(fileRoot, pathMap.file));
             }
-            // ignore: dead_code
-            break;
+            isFound = true;
+            break search;
           }
         }
 
